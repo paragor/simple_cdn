@@ -1,0 +1,43 @@
+listen_addr: :8080
+diagnostic_addr: :7070
+can_persist_cache:
+  and:
+    - not: 
+        header:
+          exists: authorization
+    - not:
+        cookie:
+          exists: token
+
+can_load_cache:
+  user_agent:
+    pattern: ".*http.?://yandex.com/bots.*"
+
+can_force_emit_debug_logging:
+  header: 
+    exists: x-with-debug-log
+
+cache:
+  type: redis
+  redis:
+    addr: 127.0.0.1:6379
+    get_timeout: 3s
+    set_timeout: 3s
+    connection_timeout: 100ms
+
+cache_key_config:
+  cookies: []
+  all_query: true
+  headers: ["host"]
+
+upstream:
+  host: "www.google.com"
+  scheme: "https"
+  transport_pool_config:
+    size: 5
+    max_idle_conns_per_host: 2
+    idle_conn_timeout: 15s
+    keep_alive_timeout: 15s
+    conn_timeout: 5s
+    max_life_time: 10s
+
