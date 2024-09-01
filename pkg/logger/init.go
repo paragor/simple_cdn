@@ -40,6 +40,8 @@ func initLogger(app string, loglevel zapcore.Level) *zap.Logger {
 	config := zap.NewProductionConfig()
 	config.EncoderConfig.MessageKey = "message"
 	config.EncoderConfig.TimeKey = "@timestamp"
+	config.EncoderConfig.EncodeTime = zapcore.RFC3339TimeEncoder
+	config.EncoderConfig.CallerKey = "line_number"
 	config.Level.SetLevel(loglevel)
 	logger, err := config.Build()
 	if err != nil {
