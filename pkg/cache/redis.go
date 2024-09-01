@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/klauspost/compress/zstd"
 	"github.com/paragor/simple_cdn/pkg/logger"
@@ -83,6 +84,9 @@ func (c *redisCache) Get(ctx context.Context, key string) *Item {
 	defer cancel()
 	redisValueCompressed, err := c.client.Get(ctx, key).Bytes()
 	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return nil
+		}
 		log.With(zap.Error(err)).Error("cant get cache")
 		metrics.CacheErrors.Inc()
 		return nil
