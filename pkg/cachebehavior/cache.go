@@ -223,7 +223,7 @@ func ioCopy(dst io.Writer, src io.Reader) error {
 	if len(buffer) < bufferSize {
 		buffer = make([]byte, bufferSize)
 	}
-	_, err := io.CopyBuffer(dst, src, nil)
+	_, err := io.CopyBuffer(dst, src, buffer)
 	return err
 }
 
