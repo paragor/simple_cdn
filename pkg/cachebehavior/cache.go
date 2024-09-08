@@ -219,6 +219,9 @@ var bufferPool = sync.Pool{
 func getBytesBuffer() ([]byte, func()) {
 	responseBytesBuffer := bufferPool.Get().([]byte)[:0]
 	return responseBytesBuffer, func() {
+		if cap(responseBytesBuffer) > 256*1024 {
+			return
+		}
 		bufferPool.Put(responseBytesBuffer[:0])
 	}
 }
