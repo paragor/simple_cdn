@@ -22,8 +22,9 @@ type cacheBehavior struct {
 	cacheKeyConfig *cache.KeyConfig
 	cache          cache.Cache
 
-	canPersistCache user.User
-	canLoadCache    user.User
+	canPersistCache    user.User
+	canLoadCache       user.User
+	cacheControlParser CacheControlParser
 }
 
 func NewCacheBehavior(
@@ -32,13 +33,15 @@ func NewCacheBehavior(
 	cacheKeyConfig *cache.KeyConfig,
 	upstream upstream.Upstream,
 	cache cache.Cache,
+	cacheControlParser CacheControlParser,
 ) http.Handler {
 	return &cacheBehavior{
-		upstream:        upstream,
-		cacheKeyConfig:  cacheKeyConfig,
-		cache:           cache,
-		canPersistCache: canPersistCache,
-		canLoadCache:    canLoadCache,
+		upstream:           upstream,
+		cacheKeyConfig:     cacheKeyConfig,
+		cache:              cache,
+		canPersistCache:    canPersistCache,
+		canLoadCache:       canLoadCache,
+		cacheControlParser: cacheControlParser,
 	}
 }
 func (b *cacheBehavior) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -122,7 +125,11 @@ func (b *cacheBehavior) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				log.With(zap.Error(err)).Error("cant read upstream body")
 				return
 			}
-			item := cache.ItemFromResponse(response, buffer.Bytes())
+			cacheControl := b.cacheControlParser.GetCacheControl(r, response)
+			if !cacheControl.ShouldCDNPersist() {
+				return
+			}
+			item := cache.ItemFromResponse(response, cacheControl, buffer.Bytes())
 			if item == nil {
 				return
 			}
@@ -170,7 +177,8 @@ func (b *cacheBehavior) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	copyHeaders(response.Header, w.Header())
 	w.Header().Set("X-Cache-Status", "MISS")
 	w.WriteHeader(response.StatusCode)
-	if !canPersistCache || !cache.ShouldPersist(response) {
+	cacheControl := b.cacheControlParser.GetCacheControl(r, response)
+	if !canPersistCache || !cacheControl.ShouldCDNPersist() {
 		log.Debug("response to client without cache save")
 		if err = ioCopy(w, response.Body); err != nil {
 			log.With(zap.Error(err)).Warn("cant write response body")
@@ -193,7 +201,7 @@ func (b *cacheBehavior) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			log.With(zap.Bool("is_saved", cacheIsSaved)).Debug("persist cache")
 		}()
 		defer bodyBytesClean()
-		cacheItem = cache.ItemFromResponse(response, bodyBuffer.Bytes())
+		cacheItem = cache.ItemFromResponse(response, cacheControl, bodyBuffer.Bytes())
 		if cacheItem == nil {
 			return
 		}

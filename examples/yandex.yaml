@@ -17,6 +17,16 @@ can_force_emit_debug_logging:
   header: 
     exists: x-with-debug-log
 
+ordered_cache_control_fallback:
+  - user:
+      user_agent:
+        pattern: ".*http.?://yandex.com/bots.*"
+    cache_control:
+      public: true
+      s-maxage: 60s
+      stale-while-revalidate: 24h
+      stale-if-error: 168h
+
 cache:
   type: redis
   redis:

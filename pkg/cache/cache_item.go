@@ -22,24 +22,10 @@ func (item *Item) CanStaleIfError(now time.Time) bool {
 }
 
 func (item *Item) CanStaleWhileRevalidation(now time.Time) bool {
-	return item.CacheHeader.Public && now.Sub(item.SavedAt) < item.CacheHeader.StaleWhileInvalidation
+	return item.CacheHeader.Public && now.Sub(item.SavedAt) < item.CacheHeader.StaleWhileRevalidate
 }
 
-func ShouldPersist(response *http.Response) bool {
-	cacheControlHeader := response.Header.Get("Cache-Control")
-	if len(cacheControlHeader) == 0 {
-		return false
-	}
-	cacheControl := ParseCacheControlHeader(cacheControlHeader)
-	return cacheControl.ShouldCDNPersist()
-}
-
-func ItemFromResponse(response *http.Response, body []byte) *Item {
-	cacheControlHeader := response.Header.Get("Cache-Control")
-	if len(cacheControlHeader) == 0 {
-		return nil
-	}
-	cacheControl := ParseCacheControlHeader(cacheControlHeader)
+func ItemFromResponse(response *http.Response, cacheControl CacheControl, body []byte) *Item {
 	if !cacheControl.ShouldCDNPersist() {
 		return nil
 	}

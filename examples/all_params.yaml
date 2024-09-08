@@ -37,6 +37,16 @@ cache:
     set_timeout: 3s
     connection_timeout: 100ms
 
+ordered_cache_control_fallback: 
+  - user:
+      path:
+        pattern: "^/images/.*"
+    cache_control:
+      public: true
+      s-maxage: 60s
+      stale-while-revalidate: 1h
+      stale-if-error: 2h
+
 cache_key_config:
   headers: []
   cookies: []

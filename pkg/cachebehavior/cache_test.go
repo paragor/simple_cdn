@@ -174,6 +174,16 @@ func Test_cacheBehavior_ServeHTTP_ProxyPass(t *testing.T) {
 		user.Not(user.CookieExists("token")),
 	)
 	canLoadCache := must1(user.UserAgentPattern(".*http.?://yandex.com/bots.*"))
+	cacheControlParser := orderedCacheControlFallback{{
+		user: must1(user.PathPattern("^/fallback$")),
+		cacheControl: cache.CacheControl{
+			Public:               true,
+			MaxAge:               0,
+			SMaxAge:              1 * time.Hour,
+			StaleWhileRevalidate: 2 * time.Hour,
+			StaleIfError:         3 * time.Hour,
+		},
+	}}
 
 	cachebehavior := NewCacheBehavior(
 		canPersistCache,
@@ -181,6 +191,7 @@ func Test_cacheBehavior_ServeHTTP_ProxyPass(t *testing.T) {
 		keyConfig,
 		fUpstream,
 		fCache,
+		&cacheControlParser,
 	)
 	fBody := bytes.NewBuffer(nil)
 	fBody.WriteString("this is body")

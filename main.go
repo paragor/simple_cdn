@@ -72,6 +72,7 @@ func main() {
 		&config.CacheKeyConfig,
 		config.Upstream.CreateUpstream(),
 		cacheDb,
+		config.OrderedCacheControlFallback.ToCacheControlParser(),
 	)
 	handler = logger.HttpRecoveryMiddleware(handler)
 	handler = logger.HttpLoggingMiddleware(handler)
@@ -113,14 +114,15 @@ func main() {
 }
 
 type Config struct {
-	ListenAddr               string          `yaml:"listen_addr"`
-	DiagnosticAddr           string          `yaml:"diagnostic_addr"`
-	CanPersistCache          user.Config     `yaml:"can_persist_cache"`
-	CanLoadCache             user.Config     `yaml:"can_load_cache"`
-	CanForceEmitDebugLogging user.Config     `yaml:"can_force_emit_debug_logging"`
-	CacheKeyConfig           cache.KeyConfig `yaml:"cache_key_config"`
-	Upstream                 upstream.Config `yaml:"upstream"`
-	Cache                    cache.Config    `yaml:"cache"`
+	ListenAddr                  string                                          `yaml:"listen_addr"`
+	DiagnosticAddr              string                                          `yaml:"diagnostic_addr"`
+	CanPersistCache             user.Config                                     `yaml:"can_persist_cache"`
+	CanLoadCache                user.Config                                     `yaml:"can_load_cache"`
+	CanForceEmitDebugLogging    user.Config                                     `yaml:"can_force_emit_debug_logging"`
+	CacheKeyConfig              cache.KeyConfig                                 `yaml:"cache_key_config"`
+	Upstream                    upstream.Config                                 `yaml:"upstream"`
+	Cache                       cache.Config                                    `yaml:"cache"`
+	OrderedCacheControlFallback cachebehavior.OrderedCacheControlFallbackConfig `yaml:"ordered_cache_control_fallback"`
 }
 
 func (c *Config) Validate() error {
@@ -147,6 +149,9 @@ func (c *Config) Validate() error {
 	}
 	if err := c.Cache.Validate(); err != nil {
 		return fmt.Errorf("cache invalid: %w", err)
+	}
+	if err := c.OrderedCacheControlFallback.Validate(); err != nil {
+		return fmt.Errorf("ordered_cache_control_fallback invalid: %w", err)
 	}
 	return nil
 }

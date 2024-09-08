@@ -21,11 +21,11 @@ func TestParseCacheHeader(t *testing.T) {
 				str: "public, max-age=100, s-maxage=200, stale-while-revalidate=300, stale-if-error=400",
 			},
 			want: CacheControl{
-				Public:                 true,
-				MaxAge:                 100 * time.Second,
-				SMaxAge:                200 * time.Second,
-				StaleWhileInvalidation: 300 * time.Second,
-				StaleIfError:           400 * time.Second,
+				Public:               true,
+				MaxAge:               100 * time.Second,
+				SMaxAge:              200 * time.Second,
+				StaleWhileRevalidate: 300 * time.Second,
+				StaleIfError:         400 * time.Second,
 			},
 		},
 		{
@@ -34,11 +34,11 @@ func TestParseCacheHeader(t *testing.T) {
 				str: "nothing",
 			},
 			want: CacheControl{
-				Public:                 false,
-				MaxAge:                 0,
-				SMaxAge:                0,
-				StaleWhileInvalidation: 0,
-				StaleIfError:           0,
+				Public:               false,
+				MaxAge:               0,
+				SMaxAge:              0,
+				StaleWhileRevalidate: 0,
+				StaleIfError:         0,
 			},
 		},
 	}
