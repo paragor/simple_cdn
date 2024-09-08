@@ -43,6 +43,7 @@ See examples in [./examples/*.yaml](./examples)
 - `cache`: Cache backend configuration (e.g., Redis).
 - `cache_key_config`: Configuration for cache key generation based on cookies, headers, and query parameters.
 - `upstream`: Configuration for the upstream server to which uncached requests are forwarded.
+- `ordered_cache_control_fallback`: Config for override Cache-Control header if it is empty.
 
 # Diagnostic Server
 The diagnostic server provides the following endpoints:
