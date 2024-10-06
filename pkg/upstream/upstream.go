@@ -104,7 +104,9 @@ func (u *singleHostUpstream) Do(originRequest *http.Request) (*http.Response, er
 	}()
 	select {
 	case <-done:
-		removeHopByHopHeaders(response.Header)
+		if response != nil && response.Header != nil {
+			removeHopByHopHeaders(response.Header)
+		}
 		return response, err
 	case <-timer.C:
 		return nil, fmt.Errorf("request timeout")
