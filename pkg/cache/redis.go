@@ -8,6 +8,7 @@ import (
 	"github.com/klauspost/compress/zstd"
 	"github.com/paragor/simple_cdn/pkg/logger"
 	"github.com/paragor/simple_cdn/pkg/metrics"
+	"github.com/paragor/simple_cdn/pkg/utils/pool"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"time"
@@ -91,8 +92,10 @@ func (c *redisCache) Get(ctx context.Context, key string) *Item {
 		metrics.CacheErrors.Inc()
 		return nil
 	}
-	bytesBuffer, bytesBufferClean := getBytesBuffer()
-	defer bytesBufferClean()
+	bytesBuffer := pool.DefaultBufferPool.Get(max(len(redisValueCompressed)*zstdGoodCompressionRatio, pool.DefaultBufferPoolMaxSize))
+	defer func() {
+		pool.DefaultBufferPool.Put(bytesBuffer[:0])
+	}()
 
 	bytesBuffer, err = zstdDecoder.DecodeAll(redisValueCompressed, bytesBuffer)
 	if err != nil {
@@ -126,8 +129,10 @@ func (c *redisCache) Set(ctx context.Context, key string, value *Item) {
 		metrics.CacheErrors.Inc()
 		return
 	}
-	bytesBuffer, bytesBufferClean := getBytesBuffer()
-	defer bytesBufferClean()
+	bytesBuffer := pool.DefaultBufferPool.Get(max(pool.DefaultBufferPoolMaxSize, len(data)/zstdBadCompressionRatio))
+	defer func() {
+		pool.DefaultBufferPool.Put(bytesBuffer[:0])
+	}()
 	bytesBuffer = zstdEncoder.EncodeAll(data, bytesBuffer)
 	ctx, cancel := context.WithTimeout(context.Background(), c.setTimeout)
 	defer cancel()
@@ -137,6 +142,9 @@ func (c *redisCache) Set(ctx context.Context, key string, value *Item) {
 		metrics.CacheErrors.Inc()
 	}
 }
+
+const zstdBadCompressionRatio = 2
+const zstdGoodCompressionRatio = 3
 
 var zstdEncoder *zstd.Encoder
 var zstdDecoder *zstd.Decoder

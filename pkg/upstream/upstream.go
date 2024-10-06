@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/paragor/simple_cdn/pkg/utils/pool"
 	"io"
 	"net/http"
-	"sync"
 	"time"
 )
 
@@ -70,8 +70,10 @@ func newSingleHostUpstream(
 }
 
 func (u *singleHostUpstream) Do(originRequest *http.Request) (*http.Response, error) {
-	bufferData, bufferDataClean := getBytesBuffer()
-	defer bufferDataClean()
+	bufferData := pool.DefaultBufferPool.Get(max(int(originRequest.ContentLength), pool.DefaultBufferPoolMinSize))
+	defer func() {
+		pool.DefaultBufferPool.Put(bufferData[:0])
+	}()
 
 	requestBody := bytes.NewBuffer(bufferData)
 	_, _ = requestBody.ReadFrom(originRequest.Body)
@@ -106,22 +108,6 @@ func (u *singleHostUpstream) Do(originRequest *http.Request) (*http.Response, er
 		return response, err
 	case <-timer.C:
 		return nil, fmt.Errorf("request timeout")
-	}
-}
-
-var bufferPool = sync.Pool{
-	New: func() any {
-		return make([]byte, 0)
-	},
-}
-
-func getBytesBuffer() ([]byte, func()) {
-	responseBytesBuffer := bufferPool.Get().([]byte)[:0]
-	return responseBytesBuffer, func() {
-		if cap(responseBytesBuffer) > 256*1024 {
-			return
-		}
-		bufferPool.Put(responseBytesBuffer[:0])
 	}
 }
 

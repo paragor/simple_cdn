@@ -7,15 +7,13 @@ import (
 	"github.com/paragor/simple_cdn/pkg/metrics"
 	"github.com/paragor/simple_cdn/pkg/upstream"
 	"github.com/paragor/simple_cdn/pkg/user"
+	"github.com/paragor/simple_cdn/pkg/utils/pool"
 	"go.uber.org/zap"
 	"io"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 )
-
-const bufferSize = 32 * 1024
 
 type cacheBehavior struct {
 	upstream       upstream.Upstream
@@ -118,8 +116,10 @@ func (b *cacheBehavior) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				log.Warn("not cachable status code")
 				return
 			}
-			cacheBytesBuffer, cacheBytesBufferClean := getBytesBuffer()
-			defer cacheBytesBufferClean()
+			cacheBytesBuffer := pool.DefaultBufferPool.Get(max(pool.DefaultBufferPoolMinSize, int(response.ContentLength)))
+			defer func() {
+				pool.DefaultBufferPool.Put(cacheBytesBuffer[:0])
+			}()
 			buffer := bytes.NewBuffer(cacheBytesBuffer)
 			if _, err := buffer.ReadFrom(response.Body); err != nil {
 				log.With(zap.Error(err)).Error("cant read upstream body")
@@ -186,7 +186,10 @@ func (b *cacheBehavior) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bodyBytes, bodyBytesClean := getBytesBuffer()
+	bodyBytes := pool.DefaultBufferPool.Get(max(pool.DefaultBufferPoolMinSize, int(response.ContentLength)))
+	bodyBytesClean := func() {
+		pool.DefaultBufferPool.Put(bodyBytes[:0])
+	}
 	bodyBuffer := bytes.NewBuffer(bodyBytes)
 	if err := ioCopyWithPersist(w, response.Body, bodyBuffer); err != nil {
 		log.With(zap.Error(err)).Error("cant read all body from upstream")
@@ -210,27 +213,14 @@ func (b *cacheBehavior) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 
-var bufferPool = sync.Pool{
-	New: func() any {
-		return make([]byte, 8*1024)
-	},
-}
-
-func getBytesBuffer() ([]byte, func()) {
-	responseBytesBuffer := bufferPool.Get().([]byte)[:0]
-	return responseBytesBuffer, func() {
-		if cap(responseBytesBuffer) > 256*1024 {
-			return
-		}
-		bufferPool.Put(responseBytesBuffer[:0])
-	}
-}
-
 func ioCopy(dst io.Writer, src io.Reader) error {
-	responseBytesBuffer, responseBytesBufferClean := getBytesBuffer()
-	defer responseBytesBufferClean()
+	const bufferSize = 32 * 1024
+	responseBytesBuffer := pool.DefaultBufferPool.Get(bufferSize)
+	defer func() {
+		pool.DefaultBufferPool.Put(responseBytesBuffer[:0])
+	}()
 	var buffer []byte
-	buffer = responseBytesBuffer[:cap(responseBytesBuffer)]
+	buffer = responseBytesBuffer[:max(bufferSize, cap(responseBytesBuffer))]
 	if len(buffer) < bufferSize {
 		buffer = make([]byte, bufferSize)
 	}
